@@ -27,7 +27,7 @@ function App() {
           <Route path="/" element={<LandingPage />} />
           <Route path="/login" element={<Login />} />
          <Route path="/register" element={<Register />} /> 
-          {/* <Route path="/dashboard" element={<UserDashboard />} />  */}
+          <Route path="/dashboard" element={<UserDashboard />} /> 
           <Route path="/chat" element={<ChatPage />} />
           {/* <Route path="/voice" element={<VoiceMode />} /> */}
         </Route>

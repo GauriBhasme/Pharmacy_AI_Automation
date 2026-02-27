@@ -1,7 +1,7 @@
 // src/routes/agent.routes.js
 
 import express from "express";
-import { authenticate } from "../middleware/authenticate.js";
+import authenticate from "../middleware/authenticate.js";
 import {
   chatWithAgent,
   validateOrderWithAgent,

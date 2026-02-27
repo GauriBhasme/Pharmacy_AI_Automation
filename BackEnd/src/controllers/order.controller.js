@@ -1,4 +1,4 @@
-import db from "../config/db.js";
+import {db} from "../db.js";
 
 export const createOrder = async (req, res) => {
   const connection = await db.getConnection();
@@ -86,3 +86,26 @@ app.post("/place-order", async (req, res) => {
 
   res.json({ message: "Order placed & email sent" });
 });
+
+// SMTP__________________
+
+import transporter from "../mailer.js";
+
+export const sendOrderConfirmation = async (userEmail, orderDetails) => {
+  try {
+    await transporter.sendMail({
+      from: `"Online Pharmacy" <${process.env.SMTP_USER}>`,
+      to: userEmail,
+      subject: "🛒 Order Confirmation - Thank You!",
+      html: `
+        <h2>Order Confirmed ✅</h2>
+        <p>Thank you for your order!</p>
+        <p><strong>Order ID:</strong> ${orderDetails.id}</p>
+        <p><strong>Total Amount:</strong> ₹${orderDetails.total}</p>
+        <p>Your medicines will be delivered soon 🚚</p>
+      `,
+    });
+  } catch (error) {
+    console.error("Error sending order confirmation email:", error);
+  }
+};

@@ -1,8 +1,8 @@
 // src/routes/admin.routes.js
 
 import express from "express";
-import { authenticate } from "../middleware/authenticate.js";
-import { authorizeAdmin } from "../middleware/authorizeAdmin.js";
+import authenticate from "../middleware/authenticate.js";
+import authorizeAdmin from "../middleware/authorizeAdmin.js";
 
 import {
   getAdminDashboard,
@@ -18,7 +18,7 @@ import {
   getAgentLogs
 } from "../controllers/admin.controller.js";
 
-const router = express.Router();
+export const router = express.Router();
 
 router.use(authenticate);
 router.use(authorizeAdmin);
@@ -44,4 +44,5 @@ router.delete("/medicines/:id", deleteMedicine);
 // Agent Logs
 router.get("/agent-logs", getAgentLogs);
 
-export default router;
+//
+// export default router;

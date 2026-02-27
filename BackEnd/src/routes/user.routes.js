@@ -1,7 +1,7 @@
 // src/routes/user.routes.js
 
 import express from "express";
-import { authenticate } from "../middleware/authenticate.js";
+import authenticate from "../middleware/authenticate.js";
 import {
   getProfile,
   updateProfile,
@@ -12,7 +12,7 @@ import {
 
 const router = express.Router();
 
-router.use(authenticate);
+// router.use(authenticate);
 
 // Profile
 router.get("/profile", getProfile);

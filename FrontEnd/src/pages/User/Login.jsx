@@ -1,4 +1,7 @@
-import { Link } from "react-router-dom";
+import { useState } from "react";
+import { Link, useNavigate } from "react-router-dom";
+import axios from "axios";
+
 import AuthLayout from "../../components/auth/AuthLayout";
 import AuthCard from "../../components/auth/AuthCard";
 import InputField from "../../components/auth/InputField";
@@ -6,22 +9,80 @@ import PrimaryButton from "../../components/auth/PrimaryButton";
 import Divider from "../../components/auth/Divider";
 
 export default function Login() {
+  const navigate = useNavigate();
+
+  const [formData, setFormData] = useState({
+    email: "",
+    password: "",
+  });
+
+  const [error, setError] = useState("");
+  const [loading, setLoading] = useState(false);
+
+  // Handle input change
+  const handleChange = (e) => {
+    setFormData({
+      ...formData,
+      [e.target.name]: e.target.value,
+    });
+  };
+
+  // Handle submit
+  const handleSubmit = async (e) => {
+    e.preventDefault();
+    setError("");
+    setLoading(true);
+
+    try {
+      const res = await axios.post(
+        "http://localhost:5000/api/auth/login",
+        formData,
+        {
+          withCredentials: true, // IMPORTANT for cookies
+        }
+      );
+
+      console.log("Login Success:", res.data);
+
+      // Redirect based on role (optional)
+      if (res.data.role === "admin") {
+        navigate("/admin");
+      } else {
+        navigate("/dashboard");
+      }
+
+    } catch (err) {
+      console.error(err);
+      setError(
+        err.response?.data?.message || "Something went wrong"
+      );
+    } finally {
+      setLoading(false);
+    }
+  };
+
   return (
     <AuthLayout>
       <AuthCard
         title="Welcome back"
         subtitle="Please enter your details to sign in."
       >
-        <form className="space-y-4">
+        <form className="space-y-4" onSubmit={handleSubmit}>
           <InputField
             label="Email Address"
             type="email"
+            name="email"
+            value={formData.email}
+            onChange={handleChange}
             placeholder="name@pharmacy.com"
           />
 
           <InputField
             label="Password"
             type="password"
+            name="password"
+            value={formData.password}
+            onChange={handleChange}
             placeholder="••••••••"
             rightElement={
               <span className="text-[#5F8FA8] text-xs cursor-pointer">
@@ -35,7 +96,13 @@ export default function Login() {
             Stay signed in for 30 days
           </div>
 
-          <PrimaryButton>Sign In</PrimaryButton>
+          {error && (
+            <p className="text-red-500 text-sm">{error}</p>
+          )}
+
+          <PrimaryButton type="submit" disabled={loading}>
+            {loading ? "Signing In..." : "Sign In"}
+          </PrimaryButton>
         </form>
 
         <Divider />
