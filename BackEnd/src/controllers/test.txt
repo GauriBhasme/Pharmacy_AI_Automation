@@ -1,0 +1,3 @@
+#auth
+
+GET http://localhost:5000
