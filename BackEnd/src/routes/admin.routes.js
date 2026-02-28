@@ -18,7 +18,7 @@ import {
   getAgentLogs
 } from "../controllers/admin.controller.js";
 
-export const router = express.Router();
+const router = express.Router();
 
 router.use(authenticate);
 router.use(authorizeAdmin);
@@ -45,4 +45,4 @@ router.delete("/medicines/:id", deleteMedicine);
 router.get("/agent-logs", getAgentLogs);
 
 //
-// export default router;
+export default router;

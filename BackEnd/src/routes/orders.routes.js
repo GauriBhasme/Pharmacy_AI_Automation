@@ -3,7 +3,7 @@ import authenticate from "../middleware/authenticate.js";
 import { db } from "../db.js";
 // import { sendOrderConfirmation } from "../controllers/order.controller.js";
 
-export const ordersRouter = express.Router();
+const ordersRouter = express.Router();
 
 // ✅ Get all orders
 ordersRouter.get("/orders", authenticate, (req, res) => {
@@ -96,3 +96,5 @@ ordersRouter.post("/orders", authenticate, async (req, res) => {
 ordersRouter.get("/orders/:id", authenticate, (req, res) => {
   res.send("Order fetched successfully");
 });
+
+export default ordersRouter;

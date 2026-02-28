@@ -7,9 +7,9 @@ import jwt from "jsonwebtoken";
 // ============================
 export const registerUser = async (req, res) => {
   try {
-    const { username, email, password, confirmPassword } = req.body;
+    const { username, phone, email, password, confirmPassword } = req.body;
 
-    if (!username || !email || !password || !confirmPassword) {
+    if (!username || !phone || !email || !password || !confirmPassword) {
       return res.status(400).json({ message: "All fields are required" });
     }
 
@@ -32,8 +32,8 @@ export const registerUser = async (req, res) => {
 
     // Insert new user
     await db.query(
-      "INSERT INTO users (username, email, password, user_role) VALUES ($1, $2, $3, $4)",
-      [username, email, hashedPassword, "user"]
+      "INSERT INTO users (user_name, phone, email, hashed_password, user_role) VALUES ($1, $2, $3, $4, $5)",
+      [username, phone, email, hashedPassword, "user"]
     );
 
     res.status(201).json({ message: "Registration successful" });
@@ -68,7 +68,7 @@ export const loginUser = async (req, res) => {
     const user = result.rows[0];
 
     // Compare password
-    const isMatch = await bcrypt.compare(password, user.password);
+    const isMatch = await bcrypt.compare(password, user.hashed_password);
 
     if (!isMatch) {
       return res.status(400).json({ message: "Invalid credentials" });

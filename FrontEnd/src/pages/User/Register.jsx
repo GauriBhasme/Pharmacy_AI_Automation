@@ -12,6 +12,7 @@ export default function Register() {
 
   const [formData, setFormData] = useState({
     username: "",
+    phone: "",
     email: "",
     password: "",
     confirmPassword: "",
@@ -74,6 +75,14 @@ export default function Register() {
             value={formData.username}
             onChange={handleChange}
             placeholder="John Doe"
+          />
+
+          <InputField
+            label="Phone Number"
+            name="phone"
+            value={formData.phone}
+            onChange={handleChange}
+            placeholder="e.g. 1234567890"
           />
 
           <InputField
