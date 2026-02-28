@@ -48,7 +48,7 @@ export default function Navbar() {
       <div className="flex gap-4 items-center">
         {/* Show Login on landing page if not logged in, and on other pages if not logged in */}
         {(!isLoggedIn && isLanding) || (!isLoggedIn && !isLanding) ? (
-          <Link to="/login" className="text-gray-300 hover:text-white">
+          <Link to="/login" className="text-white hover:text-blue-400">
             Login
           </Link>
         ) : null}
