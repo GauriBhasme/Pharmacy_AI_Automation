@@ -2,16 +2,15 @@ import FeatureCard from "./FeatureCard";
 
 export default function FeaturesSection() {
   return (
-    <section id="features" className="px-8 py-20 bg-[#041311] text-white">
+    <section id="features" className="px-8 py-20 bg-gradient-to-br from-[#0B1F3A] to-[#0E2F5A] text-white">
       <div className="max-w-7xl mx-auto text-center">
-        <h2 className="text-4xl font-bold mb-4">
+        <h2 className="text-4xl font-bold mb-4 text-blue-400">
           Intelligent Pharmacy Features
         </h2>
-        <p className="text-gray-400 mb-12">
+        <p className="text-blue-200 mb-12">
           Our autonomous system ensures your health is managed with precision,
           speed, and uncompromising care.
         </p>
-
         <div className="grid md:grid-cols-3 gap-8">
           <FeatureCard
             icon="💬"

@@ -1,72 +1,84 @@
-import { GoogleGenerativeAI } from "@google/generative-ai";
+import { GoogleGenAI } from "@google/genai";
 import { db } from "../db.js";
 import { asyncHandler } from "../middleware/asyncHandler.js";
 
-const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY);
+/* ======================================================
+   GEMINI SETUP
+====================================================== */
 
-const model = genAI.getGenerativeModel({
-  model: "gemini-1.5-flash",
+const genAI = new GoogleGenAI({
+  apiKey: process.env.GEMINI_API_KEY,
 });
 
 /* ======================================================
-   1️⃣ CHAT WITH AGENT
+   1️⃣ CHAT WITH GEMINI BOT
 ====================================================== */
 
 export const chatWithAgent = asyncHandler(async (req, res) => {
   const { message } = req.body;
 
   if (!message) {
-    const error = new Error("Message is required");
-    error.statusCode = 400;
-    throw error;
+    return res.status(400).json({
+      success: false,
+      error: "Message is required",
+    });
   }
 
   const prompt = `
-You are a pharmacy AI assistant.
-Provide safe and helpful responses.
-User: ${message}
+You are an AI Pharmacist Assistant.
+Give safe, medically aware and helpful responses.
+If unsure, advise consulting a doctor.
+
+User Question:
+${message}
 `;
 
-  const result = await model.generateContent(prompt);
-  const response = await result.response;
-  const aiReply = response.text();
+  const result = await genAI.models.generateContent({
+    model: "gemini-2.5-flash",
+    contents: prompt,
+  });
 
-  // Save log
+  const aiReply = result.text;
+
+  const userId = req.user?.user_id || null;
+
   await db.query(
-    "INSERT INTO logs (user_id, step, decision) VALUES (?, ?, ?)",
-    [req.user.id, "CHAT_RESPONSE", aiReply]
+    "INSERT INTO logs (user_id, step, decision) VALUES ($1, $2, $3)",
+    [userId, "CHAT_RESPONSE", aiReply]
   );
 
   res.json({
+    success: true,
     reply: aiReply,
   });
 });
 
 /* ======================================================
-   2️⃣ VALIDATE ORDER WITH AGENT
+   2️⃣ VALIDATE ORDER WITH GEMINI
 ====================================================== */
 
 export const validateOrderWithAgent = asyncHandler(async (req, res) => {
   const { orderItems } = req.body;
 
   if (!orderItems || !Array.isArray(orderItems)) {
-    const error = new Error("orderItems must be an array");
-    error.statusCode = 400;
-    throw error;
+    return res.status(400).json({
+      success: false,
+      error: "orderItems must be an array",
+    });
   }
 
   const prompt = `
 You are a pharmacy AI safety validator.
 
-Validate the following order for:
+Check for:
 - Drug interactions
-- Incorrect dosage
+- Wrong dosage
 - Safety risks
 
 Order:
 ${JSON.stringify(orderItems)}
 
-Return STRICT JSON:
+Return ONLY valid JSON in this format:
 
 {
   "isValid": true/false,
@@ -75,47 +87,54 @@ Return STRICT JSON:
 }
 `;
 
-  const result = await model.generateContent(prompt);
-  const response = await result.response;
-  const aiText = response.text();
+  const result = await genAI.models.generateContent({
+    model: "gemini-1.5-flash",
+    contents: prompt,
+  });
+
+  let aiText = result.text;
+
+  // Remove markdown formatting if model adds ```json
+  aiText = aiText.replace(/```json|```/g, "").trim();
 
   let parsed;
 
   try {
     parsed = JSON.parse(aiText);
-  } catch {
+  } catch (error) {
     parsed = {
       isValid: false,
       warnings: ["AI response parsing failed"],
-      recommendations: []
+      recommendations: [],
     };
   }
 
+  const userId = req.user?.user_id || null;
+
   await db.query(
-    "INSERT INTO logs (user_id, step, decision) VALUES (?, ?, ?)",
-    [
-      req.user.id,
-      "ORDER_VALIDATION",
-      JSON.stringify(parsed)
-    ]
+    "INSERT INTO logs (user_id, step, decision) VALUES ($1, $2, $3)",
+    [userId, "ORDER_VALIDATION", JSON.stringify(parsed)]
   );
 
   res.json({
-    validation: parsed
+    success: true,
+    validation: parsed,
   });
 });
 
 /* ======================================================
-   3️⃣ GET ALL AGENT LOGS FOR USER
+   3️⃣ GET ALL USER LOGS
 ====================================================== */
 
 export const getAgentTraceLogs = asyncHandler(async (req, res) => {
-  const [logs] = await db.query(
-    "SELECT id, step, created_at FROM logs WHERE user_id = ? ORDER BY created_at DESC",
-    [req.user.id]
+  const userId = req.user?.user_id;
+
+  const { rows } = await db.query(
+    "SELECT id, step, created_at FROM logs WHERE user_id = $1 ORDER BY created_at DESC",
+    [userId]
   );
 
-  res.json(logs);
+  res.json(rows);
 });
 
 /* ======================================================
@@ -124,17 +143,19 @@ export const getAgentTraceLogs = asyncHandler(async (req, res) => {
 
 export const getSingleTrace = asyncHandler(async (req, res) => {
   const { traceId } = req.params;
+  const userId = req.user?.user_id;
 
-  const [result] = await db.query(
-    "SELECT * FROM logs WHERE id = ? AND user_id = ?",
-    [traceId, req.user.id]
+  const { rows } = await db.query(
+    "SELECT * FROM logs WHERE id = $1 AND user_id = $2",
+    [traceId, userId]
   );
 
-  if (result.length === 0) {
-    const error = new Error("Log not found");
-    error.statusCode = 404;
-    throw error;
+  if (rows.length === 0) {
+    return res.status(404).json({
+      success: false,
+      error: "Log not found",
+    });
   }
 
-  res.json(result[0]);
+  res.json(rows[0]);
 });

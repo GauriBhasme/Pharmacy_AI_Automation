@@ -95,7 +95,8 @@ export const loginUser = async (req, res) => {
 
     res.json({
       message: "Login successful",
-      role: user.user_role
+      role: user.user_role,
+      token // <-- include token in response for frontend to store
     });
 
   } catch (err) {

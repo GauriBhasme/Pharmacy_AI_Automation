@@ -38,6 +38,7 @@ export default function Register() {
       return setError("Passwords do not match");
     }
 
+    console.log("Submitting Registration:", formData);
     setLoading(true);
 
     try {
@@ -46,6 +47,7 @@ export default function Register() {
         formData,
         { withCredentials: true }
       );
+      
 
       console.log("Registration Success:", res.data);
 

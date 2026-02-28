@@ -1,14 +1,14 @@
-import {db} from "../db.js";
+import { db } from "../db.js";
 
 export const getProfile = async (req, res) => {
   const userId = req.user.user_id;
 
-  const [user] = await db.query(
-    "SELECT username, email, allergy, image_url FROM users WHERE user_id = ?",
+  const result = await db.query(
+    "SELECT username, email, allergy, image_url FROM users WHERE user_id = $1",
     [userId]
   );
 
-  res.json(user[0]);
+  res.json(result.rows[0]);
 };
 
 export const updateProfile = async (req, res) => {
@@ -16,7 +16,7 @@ export const updateProfile = async (req, res) => {
   const { allergy, image_url } = req.body;
 
   await db.query(
-    "UPDATE users SET allergy = ?, image_url = ? WHERE user_id = ?",
+    "UPDATE users SET allergy = $1, image_url = $2 WHERE user_id = $3",
     [allergy, image_url, userId]
   );
 
@@ -26,42 +26,42 @@ export const updateProfile = async (req, res) => {
 export const getDashboard = async (req, res) => {
   const userId = req.user.user_id;
 
-  const [orders] = await db.query(
-    "SELECT COUNT(*) as totalOrders FROM orders WHERE user_id = ?",
+  const result = await db.query(
+    "SELECT COUNT(*) as totalorders FROM orders WHERE user_id = $1",
     [userId]
   );
 
   res.json({
-    totalOrders: orders[0].totalOrders
+    totalOrders: result.rows[0].totalorders
   });
 };
 
 export const getOrderHistory = async (req, res) => {
   const userId = req.user.user_id;
 
-  const [history] = await db.query(
+  const result = await db.query(
     `SELECT o.order_id, oi.quantity, oi.order_status, m.medicine_name
      FROM orders o
      JOIN order_items oi ON o.order_id = oi.order_id
      JOIN medicines m ON m.medicine_id = oi.medicine_id
-     WHERE o.user_id = ?`,
+     WHERE o.user_id = $1`,
     [userId]
   );
 
-  res.json(history);
+  res.json(result.rows);
 };
 
 export const getRefillPredictions = async (req, res) => {
   const userId = req.user.user_id;
 
-  const [items] = await db.query(
+  const result = await db.query(
     `SELECT m.medicine_name, oi.quantity, oi.ordered_at
      FROM orders o
      JOIN order_items oi ON o.order_id = oi.order_id
      JOIN medicines m ON m.medicine_id = oi.medicine_id
-     WHERE o.user_id = ?`,
+     WHERE o.user_id = $1`,
     [userId]
   );
 
-  res.json({ predictions: items });
+  res.json({ predictions: result.rows });
 };

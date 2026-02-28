@@ -11,7 +11,7 @@ import {
 
 const router = express.Router();
 
-router.use(authenticate);
+// router.use(authenticate);
 
 // Natural language chat
 router.post("/chat", chatWithAgent);

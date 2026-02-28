@@ -12,7 +12,7 @@ import {
 
 const router = express.Router();
 
-// router.use(authenticate);
+router.use(authenticate);
 
 // Profile
 router.get("/profile", getProfile);
