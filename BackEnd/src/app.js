@@ -6,11 +6,14 @@ import medicineRouter from './routes/medicines.routes.js'
 import ordersRouter from './routes/orders.routes.js'
 import adminRouter from './routes/admin.routes.js';
 import userRouter from './routes/user.routes.js';
-
+import prescriptionRoute from "./prescriptionRoute.js";
 import express from 'express';
 import cors from 'cors';
 
 export const app = express();
+
+
+
 
 //middlewares
 // app.use(cors());
@@ -21,7 +24,7 @@ app.use(
     })
 );
 app.use(express.json());
-
+app.use("/api", prescriptionRoute);
 
 //define all routes for app using routers
 app.use('/api/auth', authRouter);
