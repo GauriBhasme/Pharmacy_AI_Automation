@@ -6,14 +6,13 @@ import Login from "./pages/User/Login";
 import Register from "./pages/User/Register";
 import UserDashboard from "./pages/User/UserDashboard";
 import ChatPage from "./pages/User/ChatPage";
-import VoiceMode from "./pages/User/VoiceMode";
 
 // Admin Pages
 import AdminDashboard from "./pages/Admin/AdminDashboard";
 import MedicineManagement from "./pages/Admin/MedicineManagement";
 import AgentTracking from "./pages/Admin/AgentTracking";
 
-// Optional Layout Wrappers (Recommended)
+// Layouts
 import UserLayout from "./components/layouts/UserLayout";
 import AdminLayout from "./components/layouts/AdminLayout";
 
@@ -26,10 +25,9 @@ function App() {
         <Route element={<UserLayout />}>
           <Route path="/" element={<LandingPage />} />
           <Route path="/login" element={<Login />} />
-         <Route path="/register" element={<Register />} /> 
-          <Route path="/dashboard" element={<UserDashboard />} /> 
+          <Route path="/register" element={<Register />} />
+          <Route path="/dashboard" element={<UserDashboard />} />
           <Route path="/chat" element={<ChatPage />} />
-          {/* <Route path="/voice" element={<VoiceMode />} /> */}
         </Route>
 
         {/* ================= ADMIN ROUTES ================= */}

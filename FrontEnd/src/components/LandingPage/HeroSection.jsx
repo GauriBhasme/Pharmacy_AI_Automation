@@ -1,3 +1,4 @@
+import {Link} from "react-router-dom";
 export default function HeroSection() {
   return (
     <section className="px-8 py-20 bg-gradient-to-br from-[#0B1F3A] to-[#0E2F5A] text-white">
@@ -16,12 +17,12 @@ export default function HeroSection() {
             ordering, predictive refills, and autonomous safety enforcement.
           </p>
           <div className="flex gap-4 mt-8">
-            <button className="bg-blue-500 hover:bg-blue-600 text-black px-6 py-3 rounded-xl font-medium">
-              Start Chat →
-            </button>
-            <button className="border border-blue-500 px-6 py-3 rounded-xl text-blue-400 hover:bg-blue-500 hover:text-black">
-              View Dashboard
-            </button>
+              <Link to="/chat" className="bg-blue-500 hover:bg-blue-600 text-black px-6 py-3 rounded-xl font-medium">
+            Start Chat →
+          </Link>
+            <Link to="/login" className="border border-blue-500 px-6 py-3 rounded-xl text-blue-400 hover:bg-blue-500 hover:text-black">
+              Get Started
+            </Link>
           </div>
           <p className="mt-8 text-sm text-blue-200">
             5,000+ prescriptions managed autonomously this month

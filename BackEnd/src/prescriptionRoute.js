@@ -5,7 +5,11 @@ import OpenAI from "openai";
 
 const router = express.Router();
 
-const upload = multer({ dest: "uploads/" });
+// ✅ Secure multer config with file size limit
+const upload = multer({
+  dest: "uploads/",
+  limits: { fileSize: 5 * 1024 * 1024 }, // 5MB max
+});
 
 const openai = new OpenAI({
   apiKey: process.env.OPENAI_API_KEY,
@@ -13,8 +17,13 @@ const openai = new OpenAI({
 
 router.post("/prescription", upload.single("image"), async (req, res) => {
   try {
+    if (!req.file) {
+      return res.status(400).json({ error: "No image uploaded" });
+    }
+
     const imagePath = req.file.path;
 
+    // Convert image to Base64
     const base64Image = fs.readFileSync(imagePath, {
       encoding: "base64",
     });
@@ -29,15 +38,18 @@ router.post("/prescription", upload.single("image"), async (req, res) => {
               type: "text",
               text: `
 Extract medicines from this prescription image.
-Return clean JSON array:
+
+Return ONLY valid JSON array in this format:
 [
   {
-    name: "",
-    type: "",
-    dosage: "",
-    frequency: ""
+    "name": "",
+    "type": "",
+    "dosage": "",
+    "frequency": ""
   }
 ]
+
+Do not include explanations or markdown.
 `
             },
             {
@@ -51,15 +63,36 @@ Return clean JSON array:
       ],
     });
 
-    fs.unlinkSync(imagePath); // delete uploaded image after processing
+    // ✅ Extract text from AI
+    let extractedText = response.choices[0].message.content;
 
-    res.json({
-      result: response.choices[0].message.content
-    });
+    // ✅ Remove markdown formatting if present
+    extractedText = extractedText
+      .replace(/```json/gi, "")
+      .replace(/```/g, "")
+      .trim();
+
+    let parsed;
+
+    try {
+      parsed = JSON.parse(extractedText);
+    } catch (err) {
+      console.error("JSON Parse Failed:", extractedText);
+      return res.status(400).json({
+        error: "Invalid JSON format returned by AI",
+      });
+    }
+
+    // ✅ Delete uploaded file after processing
+    fs.unlinkSync(imagePath);
+
+    return res.json({ result: parsed });
 
   } catch (error) {
-    console.error(error);
-    res.status(500).json({ error: "Prescription processing failed" });
+    console.error("Prescription processing error:", error);
+    return res.status(500).json({
+      error: "Prescription processing failed",
+    });
   }
 });
 

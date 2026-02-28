@@ -1,3 +1,4 @@
+import {Link} from "react-router-dom";
 export default function CTASection() {
   return (
     <section className="px-8 py-20 bg-gradient-to-br from-[#0B1F3A] to-[#0E2F5A] text-white">
@@ -10,7 +11,7 @@ export default function CTASection() {
           Secure, private, and always on.
         </p>
         <button className="bg-blue-500 hover:bg-blue-600 text-black px-8 py-4 rounded-xl font-semibold">
-          Get Started Now
+          <Link to='/login'>Get Started Now</Link>
         </button>
       </div>
     </section>

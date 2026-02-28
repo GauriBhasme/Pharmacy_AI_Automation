@@ -19,6 +19,47 @@ export default function ChatPage() {
     const [image, setImage] = useState(null);
     const [isLoading, setIsLoading] = useState(false);
 
+
+    //for image OCR 
+    const [extractedData, setExtractedData] = useState(null);
+const [showConfirm, setShowConfirm] = useState(false);
+const [selectedFile, setSelectedFile] = useState(null);
+
+
+const handleImageUpload = async (e) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    setSelectedFile(file);
+
+    const formData = new FormData();
+    formData.append("image", file);
+
+    try {
+        setIsLoading(true);
+
+        const res = await axios.post(
+            "http://localhost:5000/api/prescription",
+            formData,
+            {
+                headers: {
+                    "Content-Type": "multipart/form-data",
+                },
+            }
+        );
+
+        setExtractedData(res.data.result);
+        setShowConfirm(true);
+
+    } catch (err) {
+        alert("OCR Failed");
+    }
+
+    setIsLoading(false);
+};
+
+
+
     const messagesEndRef = useRef(null);
     const fileInputRef = useRef(null);
 
@@ -44,15 +85,15 @@ export default function ChatPage() {
     };
 
     // Image Upload
-    const handleImageUpload = (e) => {
-        const file = e.target.files?.[0];
-        if (!file) return;
-        const reader = new FileReader();
-        reader.onloadend = () => {
-            setImage(reader.result);
-        };
-        reader.readAsDataURL(file);
-    };
+    // const handleImageUpload = (e) => {
+    //     const file = e.target.files?.[0];
+    //     if (!file) return;
+    //     const reader = new FileReader();
+    //     reader.onloadend = () => {
+    //         setImage(reader.result);
+    //     };
+    //     reader.readAsDataURL(file);
+    // };
 
     const handleSend = async () => {
         if ((!input.trim() && !image) || isLoading) return;
@@ -244,6 +285,33 @@ export default function ChatPage() {
                     </p>
                 </div>
             </div>
+            {showConfirm && (
+  <div className="fixed inset-0 bg-black bg-opacity-60 flex items-center justify-center z-50">
+    <div className="bg-white rounded-xl p-6 max-w-lg w-full">
+      <h2 className="text-lg font-semibold mb-4">Confirm Extracted Medicines</h2>
+
+      <pre className="bg-gray-100 p-3 rounded text-sm max-h-60 overflow-auto">
+        {extractedData}
+      </pre>
+
+      <div className="flex justify-end gap-3 mt-4">
+        <button
+          className="px-4 py-2 bg-gray-300 rounded"
+          onClick={() => setShowConfirm(false)}
+        >
+          Cancel
+        </button>
+
+        <button
+          className="px-4 py-2 bg-blue-600 text-white rounded"
+          onClick={() => confirmPrescription()}
+        >
+          Confirm
+        </button>
+      </div>
+    </div>
+  </div>
+)}
         </div>
     );
 }

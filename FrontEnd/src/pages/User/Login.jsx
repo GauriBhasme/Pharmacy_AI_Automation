@@ -94,6 +94,7 @@ export default function Login() {
                     <PrimaryButton type="submit" disabled={loading}>
                         {loading ? "Signing In..." : "Sign In"}
                     </PrimaryButton>
+                    <p className="text-sm text-center text-[#9FB7C8]">Dont't have account <Link to="/register" className="text-blue-500 hover:underline">Sign Up</Link></p>
                 </form>
             </AuthCard>
         </AuthLayout>
