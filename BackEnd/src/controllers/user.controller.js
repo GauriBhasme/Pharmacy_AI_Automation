@@ -4,7 +4,8 @@ export const getProfile = async (req, res) => {
   const userId = req.user.user_id;
 
   const result = await db.query(
-    "SELECT username, email, allergy, image_url FROM users WHERE user_id = $1",
+    // "SELECT username, email, allergy, image_url FROM users WHERE user_id = $1",
+    "SELECT user_name AS username, email FROM users WHERE user_id = $1",
     [userId]
   );
 

@@ -21,10 +21,6 @@ export default function Header() {
           color: colors.textPrimary,
         }}
       />
-
-      <div style={{ color: colors.textPrimary }}>
-        Admin
-      </div>
     </div>
   );
 }

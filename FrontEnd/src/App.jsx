@@ -15,6 +15,7 @@ import AgentTracking from "./pages/Admin/AgentTracking";
 // Layouts
 import UserLayout from "./components/layouts/UserLayout";
 import AdminLayout from "./components/layouts/AdminLayout";
+import ProfilePage from "./pages/User/ProfilePage";
 
 function App() {
   return (
@@ -28,6 +29,7 @@ function App() {
           <Route path="/register" element={<Register />} />
           <Route path="/dashboard" element={<UserDashboard />} />
           <Route path="/chat" element={<ChatPage />} />
+          <Route path="/profile" element={<ProfilePage />} />
         </Route>
 
         {/* ================= ADMIN ROUTES ================= */}
