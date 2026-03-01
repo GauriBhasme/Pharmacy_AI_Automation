@@ -128,9 +128,12 @@ async function seedDatabase() {
   try {
     console.log('📊 Starting database seeding...');
     
-    // Create medicines table if it doesn't exist
+    // Drop existing medicines table and recreate
+    await pool.query(`DROP TABLE IF EXISTS medicines CASCADE`);
+    console.log('✅ Dropped old medicines table if exists');
+    
     await pool.query(`
-      CREATE TABLE IF NOT EXISTS medicines (
+      CREATE TABLE medicines (
         id SERIAL PRIMARY KEY,
         name VARCHAR(255) NOT NULL UNIQUE,
         description TEXT,
@@ -145,7 +148,7 @@ async function seedDatabase() {
         updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
       )
     `);
-    console.log('✅ Medicines table ready');
+    console.log('✅ Medicines table created');
 
     // Insert sample medicines
     let inserted = 0;

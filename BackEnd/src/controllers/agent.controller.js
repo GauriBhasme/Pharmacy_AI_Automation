@@ -3,369 +3,370 @@ import { asyncHandler } from "../middleware/asyncHandler.js";
 
 /* ==============================
    MEDICAL PHARMACY CHATBOT
-   - Validates all queries are medical/pharmacy field
-   - Provides medicine info, prices, stock, dosage
-   - Rejects non-medical queries
+   Pure Local Implementation - No External API Dependency
 ============================== */
 
-/**
- * Check if message is related to medical/pharmacy field
- */
+// MEDICAL KEYWORDS (40+)
+const MEDICAL_KEYWORDS = [
+  'medicine', 'drug', 'pharmacy', 'prescription', 'doctor',
+  'dosage', 'dose', 'pill', 'tablet', 'capsule', 'syrup',
+  'cream', 'ointment', 'injection', 'vaccine', 'treatment',
+  'side effect', 'adverse', 'allergy', 'allergic', 'contraindication',
+  'symptom', 'pain', 'fever', 'cold', 'cough', 'headache',
+  'disease', 'illness', 'health', 'medical', 'clinical',
+  'price', 'cost', 'stock', 'available', 'order', 'purchase',
+  'medication', 'cure', 'relief', 'condition', 'preventive'
+];
+
+// Check if message is medical-related
 const isMedicalQuery = (message) => {
-  const medicalKeywords = [
-    'medicine', 'drug', 'tablet', 'capsule', 'injection', 'syrup', 'cream', 'ointment',
-    'symptom', 'disease', 'pain', 'fever', 'flu', 'cold', 'cough', 'allergy', 'asthma',
-    'diabetes', 'pressure', 'cholesterol', 'infection', 'antibiotic', 'paracetamol',
-    'aspirin', 'ibuprofen', 'amoxicillin', 'antihistamine', 'antacid', 'laxative',
-    'price', 'cost', 'stock', 'available', 'buy', 'order', 'dosage', 'dose', 'side effect',
-    'contraindication', 'interaction', 'health', 'medical', 'pharmacy', 'prescription',
-    'otc', 'over the counter', 'generic', 'brand', 'composition', 'ingredient'
-  ];
-
   const lower = message.toLowerCase();
-  return medicalKeywords.some(keyword => lower.includes(keyword));
+  // Must contain at least one medical keyword
+  return MEDICAL_KEYWORDS.some(keyword => lower.includes(keyword));
 };
 
-/**
- * Extract medicine name from query
- */
-const extractMedicineName = (text) => {
-  // Remove common words
-  const cleaned = text
-    .toLowerCase()
-    .replace(/^(price|cost|what|is|the|of|for|about|tell me|give me|show me|list|available|stock|order|buy)\s+/gi, '')
-    .replace(/\s*(medicine|drug|tablet|capsule|injection|syrup|cream|ointment|price|cost|stock|available)\s*$/gi, '')
-    .trim();
+// Extract medicine name from message
+const extractMedicineName = (message) => {
+  const lower = message.toLowerCase();
   
-  return cleaned || null;
-};
-
-/**
- * Fetch medicine details from database
- */
-const getMedicineInfo = async (medicineName) => {
-  if (!medicineName) return null;
-
-  try {
-    const result = await db.query(
-      `SELECT id, name, description, composition, dosage, 
-              side_effects, contraindications, price, stock, category
-       FROM medicines 
-       WHERE LOWER(name) ILIKE LOWER($1) OR LOWER(description) ILIKE LOWER($1)
-       LIMIT 5`,
-      [`%${medicineName}%`]
-    );
-
-    return result.rows.length > 0 ? result.rows : null;
-  } catch (err) {
-    console.error('[medical] getMedicineInfo error:', err.message);
-    return null;
+  // Try common patterns
+  let match = lower.match(/of\s+([a-z0-9\s\-]+?)(?:\?|$|for|with)/i);
+  if (match) return match[1].trim();
+  
+  match = lower.match(/medicine\s+([a-z0-9\s\-]+?)(?:\?|$)/i);
+  if (match) return match[1].trim();
+  
+  // Fallback: take last 1-2 words
+  const words = message.match(/\b[a-z]+\b/gi) || [];
+  if (words.length > 0) {
+    return words.slice(-2).join(' ');
   }
+  
+  return '';
 };
 
-/**
- * Format medicine info for display
- */
-const formatMedicineInfo = (medicine) => {
-  if (!medicine) return null;
-
-  let info = `💊 **${medicine.name}**\n`;
-  info += `─────────────────\n`;
+// Identify intent from message
+const identifyIntent = (message) => {
+  const lower = message.toLowerCase();
   
-  if (medicine.description) info += `📝 ${medicine.description}\n`;
-  if (medicine.composition) info += `🧪 Composition: ${medicine.composition}\n`;
-  if (medicine.dosage) info += `⏱️  Dosage: ${medicine.dosage}\n`;
-  if (medicine.category) info += `📂 Category: ${medicine.category}\n`;
-  if (medicine.side_effects) info += `⚠️  Side Effects: ${medicine.side_effects}\n`;
-  if (medicine.contraindications) info += `🚫 Contraindications: ${medicine.contraindications}\n`;
+  if (/price|cost|how much|rupee|₹|amount/.test(lower)) {
+    return 'PRICE';
+  }
+  if (/dosage|dose|take|consume|mg|mg\/ml|strength/.test(lower)) {
+    return 'DOSAGE';
+  }
+  if (/side effect|adverse|allergy|allergic|contraindication|warning/.test(lower)) {
+    return 'SIDE_EFFECTS';
+  }
+  if (/fever|cough|pain|cold|headache|symptom|sick|ill|disease/.test(lower)) {
+    return 'SYMPTOM';
+  }
+  if (/order|buy|purchase|need|want|get|send|deliver/.test(lower)) {
+    return 'ORDER';
+  }
   
-  info += `\n💰 Price: ₹${medicine.price}`;
-  info += `\n📦 Stock: ${medicine.stock > 0 ? `${medicine.stock} units available` : 'Out of stock'}`;
-
-  return info;
+  return null;
 };
 
-/**
- * Main chat handler - Medical pharmacy chatbot
- */
+// Main chat controller
 export const chatWithAgent = asyncHandler(async (req, res) => {
   const { message } = req.body;
-  const userId = req.user?.user_id || null;
 
-  console.log(`[medical] Chat request from user ${userId || 'anonymous'}: "${message}"`);
+  console.log('[chatbot] Received message:', message);
 
-  if (!message || message.trim().length === 0) {
-    return res.status(400).json({ 
-      success: false, 
-      error: "Message cannot be empty" 
+  if (!message || !message.trim()) {
+    return res.status(400).json({
+      success: false,
+      error: "Message is required"
     });
   }
 
-  // Validate message is medical-related
+  // CHECK: Is this a medical query?
   if (!isMedicalQuery(message)) {
-    console.log(`[medical] Non-medical query rejected: "${message}"`);
+    console.log('[chatbot] Not a medical query');
     return res.json({
       success: true,
-      reply: `⚠️ I'm a Medical Pharmacy Assistant. I can only help with:\n\n` +
-             `✅ Medicine information (composition, dosage, side effects)\n` +
-             `✅ Medicine prices and availability\n` +
-             `✅ Ordering medicines\n` +
-             `✅ Symptom-based medicine recommendations\n` +
-             `✅ Drug interactions and contraindications\n\n` +
-             `Please ask something related to medicines or health. Example:\n` +
-             `"What is paracetamol used for?" or "Price of aspirin?"`
+      reply: "I can only help with pharmacy and medicine-related questions. Please ask about medicines, dosages, side effects, symptoms, or place an order. For example: 'What is the price of paracetamol?' or 'I have a fever, what medicine do I need?'"
     });
   }
 
-  const lower = message.toLowerCase();
+  console.log('[chatbot] Valid medical query');
 
-  // ==================== SYMPTOM/DISEASE INTENT ====================
-  if (/symptom|disease|treat|pain|fever|cold|cough|allergy|headache|flu/.test(lower)) {
-    console.log('[medical] Symptom/Disease query detected');
-    
-    // Basic symptom-to-medicine mapping
-    const symptomMap = {
-      'fever': { name: 'Paracetamol', info: 'Paracetamol is used to reduce fever and mild to moderate pain.' },
-      'cold': { name: 'Cough Syrup', info: 'Cough syrup helps relieve cold and cough symptoms.' },
-      'cough': { name: 'Cough Syrup', info: 'Antitussive syrups relieve dry or productive coughs.' },
-      'headache': { name: 'Aspirin', info: 'Aspirin or Paracetamol are commonly used for headache relief.' },
-      'pain': { name: 'Ibuprofen', info: 'Ibuprofen is an anti-inflammatory pain reliever for mild to moderate pain.' },
-      'allergy': { name: 'Antihistamine', info: 'Antihistamines like Cetirizine relieve allergic reactions.' },
-    };
+  // IDENTIFY INTENT
+  const intent = identifyIntent(message);
+  console.log('[chatbot] Intent:', intent);
 
-    let response = `🏥 **Symptom Assessment**\n\n`;
-    let foundMatch = false;
+  // EXTRACT MEDICINE NAME (if needed)
+  const medicineName = extractMedicineName(message);
+  console.log('[chatbot] Extracted medicine name:', medicineName);
 
-    for (const [symptom, remedy] of Object.entries(symptomMap)) {
-      if (lower.includes(symptom)) {
-        response += `For **${symptom}**: Try **${remedy.name}**\n`;
-        response += `${remedy.info}\n\n`;
-        foundMatch = true;
-      }
-    }
-
-    if (!foundMatch) {
-      response += `I can help with medicine recommendations for various symptoms.\n`;
-      response += `Common symptoms I can help with: fever, cold, cough, headache, pain, allergy.\n\n`;
-      response += `⚠️ **Disclaimer**: This is for informational purposes only. `;
-      response += `Please consult a doctor or pharmacist for proper diagnosis and treatment.`;
-    } else {
-      response += `\n⚠️ **IMPORTANT**: Consult a doctor or pharmacist before taking any medicine!`;
-    }
-
-    console.log('[medical] Symptom response prepared');
-    return res.json({ success: true, reply: response });
-  }
-
-  // ==================== PRICE/STOCK INTENT ====================
-  if (/price|cost|how much|stock|available|quantity|inventory/.test(lower)) {
-    console.log('[medical] Price/Stock query detected');
-    const medicineName = extractMedicineName(message);
-    console.log(`[medical] Medicine name extracted: "${medicineName}"`);
-
-    if (!medicineName || medicineName.length < 2) {
-      return res.json({
-        success: true,
-        reply: `To check price and availability, please mention a specific medicine.\n\n` +
-               `Example: "What is the price of paracetamol?" or "Stock of aspirin"`
-      });
-    }
-
-    const medicines = await getMedicineInfo(medicineName);
-    console.log(`[medical] Found ${medicines ? medicines.length : 0} medicines`);
-
-    if (!medicines || medicines.length === 0) {
-      return res.json({
-        success: true,
-        reply: `❌ Medicine not found in our database: **${medicineName}**\n\n` +
-               `Please check the spelling or try another medicine name.`
-      });
-    }
-
-    if (medicines.length === 1) {
-      const med = medicines[0];
-      const info = formatMedicineInfo(med);
-      console.log('[medical] Single medicine found, returning info');
-      return res.json({ success: true, reply: info });
-    }
-
-    // Multiple matches
-    console.log('[medical] Multiple medicines found');
-    let reply = `Found ${medicines.length} matching medicines:\n\n`;
-    medicines.forEach((med, idx) => {
-      reply += `${idx + 1}. **${med.name}** - ₹${med.price} (${med.stock > 0 ? med.stock + ' in stock' : 'Out of stock'})\n`;
-    });
-    reply += `\nWhich one would you like more details about?`;
-
-    return res.json({ success: true, reply });
-  }
-
-  // ==================== ORDER/BUY INTENT ====================
-  if (/order|buy|purchase|place order|need/.test(lower)) {
-    console.log('[medical] Order/Buy query detected');
-    const medicineName = extractMedicineName(message);
-    const qtyMatch = message.match(/(\d+)\s*(?:tablet|cap|strip|pack|box|x)?/i);
-    const quantity = qtyMatch ? parseInt(qtyMatch[1], 10) : 1;
-
-    console.log(`[medical] Order: medicine="${medicineName}", qty=${quantity}`);
-
-    if (!medicineName || medicineName.length < 2) {
-      return res.json({
-        success: true,
-        reply: `To place an order, please specify:\n\n` +
-               `1. Medicine name\n2. Quantity (optional, defaults to 1)\n\n` +
-               `Example: "Order 10 paracetamol tablets"`
-      });
-    }
-
-    const medicines = await getMedicineInfo(medicineName);
-
-    if (!medicines || medicines.length === 0) {
-      return res.json({
-        success: true,
-        reply: `❌ Medicine not found: **${medicineName}**\n\nCannot proceed with order.`
-      });
-    }
-
-    const medicine = medicines[0];
-
-    if (medicine.stock < quantity) {
-      return res.json({
-        success: true,
-        reply: `❌ Insufficient stock!\n\n` +
-               `Requested: ${quantity} units\n` +
-               `Available: ${medicine.stock} units\n\n` +
-               `Please reduce the quantity.`
-      });
-    }
-
+  // ======= INTENT: PRICE / STOCK =======
+  if (intent === 'PRICE') {
     try {
-      // Update stock
-      await db.query(
-        'UPDATE medicines SET stock = stock - $1 WHERE id = $2',
-        [quantity, medicine.id]
+      if (!medicineName) {
+        return res.json({
+          success: true,
+          reply: "Which medicine do you want the price of? For example: 'price of paracetamol'"
+        });
+      }
+
+      const result = await db.query(
+        'SELECT id, name, price, stock, composition FROM medicines WHERE LOWER(name) LIKE LOWER($1) LIMIT 1',
+        [`%${medicineName}%`]
       );
 
-      // Log order
-      const totalPrice = medicine.price * quantity;
-      console.log(`[medical] Order successful: ${medicine.name} x${quantity} = ₹${totalPrice}`);
+      if (result.rows.length === 0) {
+        return res.json({
+          success: true,
+          reply: `We don't have ${medicineName} in stock. Available medicines: Paracetamol, Aspirin, Ibuprofen, Cough Syrup, Cetirizine, Amoxicillin, Antacid Gel, Vitamin D3, Metformin, Losartan.`
+        });
+      }
+
+      const med = result.rows[0];
+      const reply = `💊 ${med.name}\n💰 Price: ₹${med.price}\n📦 Stock: ${med.stock} units\n📝 Composition: ${med.composition || 'N/A'}`;
+      console.log('[chatbot] Returning price:', reply);
 
       return res.json({
         success: true,
-        reply: `✅ **Order Confirmed!**\n\n` +
-               `Medicine: ${medicine.name}\n` +
-               `Quantity: ${quantity} units\n` +
-               `Price per unit: ₹${medicine.price}\n` +
-               `Total: ₹${totalPrice}\n\n` +
-               `Your order will be delivered soon. Keep your prescription ready.`
+        reply,
+        medicine: med.name,
+        price: med.price,
+        stock: med.stock
       });
     } catch (err) {
-      console.error('[medical] Order processing error:', err.message);
-      return res.status(500).json({
-        success: false,
-        error: `Order processing failed: ${err.message}`
+      console.error('[chatbot] Price query error:', err.message);
+      return res.json({
+        success: true,
+        reply: "Error retrieving medicine info. Please try again."
       });
     }
   }
 
-  // ==================== DOSAGE/USAGE INTENT ====================
-  if (/dosage|dose|how to take|usage|how much|when to take|frequency/.test(lower)) {
-    console.log('[medical] Dosage/Usage query detected');
-    const medicineName = extractMedicineName(message);
+  // ======= INTENT: DOSAGE =======
+  if (intent === 'DOSAGE') {
+    try {
+      if (!medicineName) {
+        return res.json({
+          success: true,
+          reply: "Which medicine would you like dosage information for? For example: 'dosage of paracetamol'"
+        });
+      }
 
-    if (!medicineName || medicineName.length < 2) {
+      const result = await db.query(
+        'SELECT name, dosage, category FROM medicines WHERE LOWER(name) LIKE LOWER($1) LIMIT 1',
+        [`%${medicineName}%`]
+      );
+
+      if (result.rows.length === 0) {
+        return res.json({
+          success: true,
+          reply: `We don't have dosage info for ${medicineName}. Try asking about: Paracetamol, Aspirin, Ibuprofen, Cetirizine, Amoxicillin, Metformin, or Losartan.`
+        });
+      }
+
+      const med = result.rows[0];
+      const reply = `💊 ${med.name}\n📋 Dosage: ${med.dosage}\n🏥 Category: ${med.category || 'Medicine'}`;
+      console.log('[chatbot] Returning dosage:', reply);
+
       return res.json({
         success: true,
-        reply: `To provide dosage information, please specify a medicine name.\n\n` +
-               `Example: "What is the dosage for aspirin?"`
+        reply,
+        medicine: med.name,
+        dosage: med.dosage
       });
-    }
-
-    const medicines = await getMedicineInfo(medicineName);
-
-    if (!medicines || medicines.length === 0) {
+    } catch (err) {
+      console.error('[chatbot] Dosage query error:', err.message);
       return res.json({
         success: true,
-        reply: `❌ Medicine not found: **${medicineName}**`
+        reply: "Error retrieving dosage info. Please try again."
       });
-    }
-
-    const medicine = medicines[0];
-    const dosageInfo = medicine.dosage || "Standard dosage not available";
-
-    return res.json({
-      success: true,
-      reply: `💊 **${medicine.name} - Dosage Information**\n\n` +
-             `${dosageInfo}\n\n` +
-             `⚠️ **IMPORTANT**: These are general guidelines. ` +
-             `Always follow your doctor's or pharmacist's prescription.`
-    });
-  }
-
-  // ==================== SIDE EFFECTS INTENT ====================
-  if (/side effect|adverse|reaction|allergy to|contraindication|interact/.test(lower)) {
-    console.log('[medical] Side Effects/Contraindication query detected');
-    const medicineName = extractMedicineName(message);
-
-    if (!medicineName || medicineName.length < 2) {
-      return res.json({
-        success: true,
-        reply: `To provide safety information, please specify a medicine name.\n\n` +
-               `Example: "What are the side effects of paracetamol?"`
-      });
-    }
-
-    const medicines = await getMedicineInfo(medicineName);
-
-    if (!medicines || medicines.length === 0) {
-      return res.json({
-        success: true,
-        reply: `❌ Medicine not found: **${medicineName}**`
-      });
-    }
-
-    const medicine = medicines[0];
-    let safetyInfo = `⚠️ **${medicine.name} - Safety Information**\n\n`;
-    
-    if (medicine.side_effects) {
-      safetyInfo += `**Possible Side Effects:**\n${medicine.side_effects}\n\n`;
-    }
-    
-    if (medicine.contraindications) {
-      safetyInfo += `**Contraindications (Do NOT use if):**\n${medicine.contraindications}\n\n`;
-    }
-
-    safetyInfo += `🚨 **If you experience severe side effects, stop use and contact a doctor immediately.**`;
-
-    return res.json({ success: true, reply: safetyInfo });
-  }
-
-  // ==================== DEFAULT/GENERAL MEDICAL QUERY ====================
-  console.log('[medical] General medical query');
-  const medicineName = extractMedicineName(message);
-
-  if (medicineName && medicineName.length > 1) {
-    const medicines = await getMedicineInfo(medicineName);
-    
-    if (medicines && medicines.length > 0) {
-      const info = formatMedicineInfo(medicines[0]);
-      return res.json({ success: true, reply: info });
     }
   }
 
-  // Generic medical help message
+  // ======= INTENT: SIDE EFFECTS / SAFETY =======
+  if (intent === 'SIDE_EFFECTS') {
+    try {
+      if (!medicineName) {
+        return res.json({
+          success: true,
+          reply: "Which medicine would you like safety information for? For example: 'side effects of paracetamol'"
+        });
+      }
+
+      const result = await db.query(
+        'SELECT name, side_effects, contraindications FROM medicines WHERE LOWER(name) LIKE LOWER($1) LIMIT 1',
+        [`%${medicineName}%`]
+      );
+
+      if (result.rows.length === 0) {
+        return res.json({
+          success: true,
+          reply: `We don't have side effects info for ${medicineName}. Ask about: Paracetamol, Aspirin, Ibuprofen, etc.`
+        });
+      }
+
+      const med = result.rows[0];
+      const reply = `⚠️ ${med.name}\n\n**Side Effects:**\n${med.side_effects || 'Minimal side effects reported'}\n\n**Contraindications:**\n${med.contraindications || 'Consult doctor if allergic'}`;
+      console.log('[chatbot] Returning side effects:', reply);
+
+      return res.json({
+        success: true,
+        reply,
+        medicine: med.name,
+        side_effects: med.side_effects
+      });
+    } catch (err) {
+      console.error('[chatbot] Side effects query error:', err.message);
+      return res.json({
+        success: true,
+        reply: "Error retrieving safety info. Please try again."
+      });
+    }
+  }
+
+  // ======= INTENT: SYMPTOM RECOMMENDATION =======
+  if (intent === 'SYMPTOM') {
+    try {
+      // Extract symptom from message
+      const symptoms = [
+        { keyword: /fever|temp|thermal/, medicine: 'Paracetamol' },
+        { keyword: /cough|throat/, medicine: 'Cough Syrup' },
+        { keyword: /pain|ache|hurt/, medicine: 'Ibuprofen' },
+        { keyword: /cold|runny|sinus/, medicine: 'Cetirizine' },
+        { keyword: /inflammation|swelling/, medicine: 'Aspirin' },
+        { keyword: /stomach|acid|heat/, medicine: 'Antacid Gel' },
+        { keyword: /vitamin|weak|energy/, medicine: 'Vitamin D3' },
+        { keyword: /blood|sugar|diabetes/, medicine: 'Metformin' },
+        { keyword: /pressure|hypertension|bp/, medicine: 'Losartan' },
+        { keyword: /infection|bacterial|antibiotic/, medicine: 'Amoxicillin' }
+      ];
+
+      let recommendedMedicine = null;
+      for (const sym of symptoms) {
+        if (sym.keyword.test(message.toLowerCase())) {
+          recommendedMedicine = sym.medicine;
+          break;
+        }
+      }
+
+      if (!recommendedMedicine) {
+        return res.json({
+          success: true,
+          reply: "I understand you're not feeling well. Please describe your symptoms (fever, cough, pain, cold, etc.) and I can recommend a medicine. Important: For serious symptoms, please consult a doctor!"
+        });
+      }
+
+      // Get medicine details
+      const result = await db.query(
+        'SELECT name, price, dosage, side_effects FROM medicines WHERE LOWER(name) = LOWER($1)',
+        [recommendedMedicine]
+      );
+
+      if (result.rows.length === 0) {
+        return res.json({
+          success: true,
+          reply: `I recommend ${recommendedMedicine} for your symptoms. Would you like to order it?`
+        });
+      }
+
+      const med = result.rows[0];
+      const reply = `🏥 For your symptoms, I recommend:\n\n💊 ${med.name}\n💰 Price: ₹${med.price}\n📋 Dosage: ${med.dosage}\n\n⚠️ ${med.side_effects}\n\nWould you like to order this medicine?`;
+      console.log('[chatbot] Returning symptom recommendation:', reply);
+
+      return res.json({
+        success: true,
+        reply,
+        recommended_medicine: med.name,
+        price: med.price
+      });
+    } catch (err) {
+      console.error('[chatbot] Symptom query error:', err.message);
+      return res.json({
+        success: true,
+        reply: "Please describe your symptoms and I can help you find the right medicine!"
+      });
+    }
+  }
+
+  // ======= INTENT: ORDER =======
+  if (intent === 'ORDER') {
+    try {
+      if (!medicineName) {
+        return res.json({
+          success: true,
+          reply: "Which medicine would you like to order? For example: 'Order 2 paracetamol'"
+        });
+      }
+
+      // Extract quantity
+      const qtyMatch = message.match(/(\d+)\s*(unit|pill|tablet|capsule|quantity|qty)?/i);
+      const quantity = qtyMatch ? parseInt(qtyMatch[1]) : 1;
+
+      if (quantity <= 0) {
+        return res.json({
+          success: true,
+          reply: "Please specify a valid quantity. For example: 'Order 2 paracetamol'"
+        });
+      }
+
+      const result = await db.query(
+        'SELECT id, name, price, stock FROM medicines WHERE LOWER(name) LIKE LOWER($1) LIMIT 1',
+        [`%${medicineName}%`]
+      );
+
+      console.log("Result:", result.rows);
+
+      if (result.rows.length === 0) {
+        return res.json({
+          success: true,
+          reply: `We don't have ${medicineName}. Available: Paracetamol, Aspirin, Ibuprofen, Cough Syrup, Cetirizine, Amoxicillin, Antacid Gel, Vitamin D3, Metformin, Losartan.`
+        });
+      }
+
+      const med = result.rows[0];
+
+      if (med.stock < quantity) {
+        return res.json({
+          success: true,
+          reply: `Sorry, we only have ${med.stock} units of ${med.name} in stock. Would you like ${med.stock} units instead?`
+        });
+      }
+
+      // Process order
+      await db.query(
+        'UPDATE medicines SET stock = stock - $1 WHERE id = $2',
+        [quantity, med.id]
+      );
+
+      const totalPrice = med.price * quantity;
+      const reply = `✅ Order Confirmed!\n💊 ${quantity}x ${med.name}\n💰 Total: ₹${totalPrice}\n\n📦 Order has been placed. Thank you!`;
+      console.log('[chatbot] Order processed:', reply);
+
+      return res.json({
+        success: true,
+        reply,
+        order: {
+          medicine: med.med_name,
+          quantity,
+          price_per_unit: med.price,
+          total_price: totalPrice
+        }
+      });
+    } catch (err) {
+      console.error('[chatbot] Order error:', err.message);
+      return res.json({
+        success: true,
+        reply: "Error processing order. Please try again."
+      });
+    }
+  }
+
+  // ======= NO SPECIFIC INTENT - GENERAL HELP =======
   return res.json({
     success: true,
-    reply: `🏥 **Medical Pharmacy Assistant**\n\n` +
-           `I can help you with:\n\n` +
-           `💊 **Medicine Information** - Details, composition, uses\n` +
-           `💰 **Pricing & Availability** - Check stock and prices\n` +
-           `📦 **Orders** - Buy medicines\n` +
-           `⏱️  **Dosage** - Recommended doses and frequency\n` +
-           `⚠️  **Safety** - Side effects and contraindications\n` +
-           `🔍 **Symptoms** - Medicine suggestions for symptoms\n\n` +
-           `How can I assist you today?`
+    reply: "I can help you with:\n• 💰 Medicine prices\n• 📋 Dosage information\n• ⚠️ Side effects & contraindications\n• 🏥 Symptom recommendations\n• 📦 Placing orders\n\nWhat would you like to know?"
   });
 });
 
-export default { chatWithAgent };
+// Alternative export names for compatibility
+export const chat = chatWithAgent;
