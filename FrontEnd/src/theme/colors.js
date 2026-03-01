@@ -7,6 +7,8 @@ export const colors = {
   red: "#EF4444",
   yellow: "#F59E0B",
   blue: "#2563EB",
+  orange: "#F59E0B",
+  accentBlue: "#2563EB",
   textPrimary: "#E5E7EB",
   textSecondary: "#9CA3AF",
 };

@@ -44,9 +44,16 @@ export default function Login() {
 
             // Save JWT token to localStorage for authenticated requests
             localStorage.setItem("token", res.data.token);
+            
+            // Save user info for frontend reference
+            if (res.data.user) {
+                localStorage.setItem("user", JSON.stringify(res.data.user));
+                localStorage.setItem("user_id", res.data.user.user_id);
+                console.log("✅ User data stored:", res.data.user);
+            }
 
             // Redirect based on role
-            if (res.data.role === "admin") {
+            if (res.data.user?.role === "admin") {
                 navigate("/admin");
             } else {
                 navigate("/dashboard");

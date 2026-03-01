@@ -1,9 +1,7 @@
 import React, { useEffect, useState } from "react";
-// import { getUserProfile } from "../services/api";
+import axios from "axios";
 import ProfileCard from "../../components/ProfilePage/ProfileCard";
 import Loader from "../../components/ProfilePage/Loader";
-
-import axios from "axios";
 
 export const getUserProfile = async () => {
   const token = localStorage.getItem("token");
@@ -23,25 +21,36 @@ export const getUserProfile = async () => {
 
 const ProfilePage = () => {
   const [user, setUser] = useState(null);
+  const [error, setError] = useState("");
 
   useEffect(() => {
     const fetchUser = async () => {
       try {
         const data = await getUserProfile();
         setUser(data);
-      } catch (error) {
-        console.error("Error loading profile:", error);
+      } catch (err) {
+        setError("Failed to load profile.");
       }
     };
 
     fetchUser();
   }, []);
 
+  if (error) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-[#0B1220] px-4">
+        <h2 className="text-red-400 text-xl font-semibold">{error}</h2>
+      </div>
+    );
+  }
+
   if (!user) return <Loader />;
 
   return (
-    <div className="page-container">
-      <ProfileCard user={user} />
+    <div className="min-h-screen bg-gradient-to-b from-[#0B1220] via-[#0B1730] to-[#0B1220]">
+      <div className="flex justify-center items-center py-16 px-4">
+        <ProfileCard user={user} />
+      </div>
     </div>
   );
 };

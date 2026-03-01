@@ -18,12 +18,13 @@ export default function ChatPage() {
     const [input, setInput] = useState("");
     const [image, setImage] = useState(null);
     const [isLoading, setIsLoading] = useState(false);
-
+    const [orderModal, setOrderModal] = useState(null);
+    const [isConfirmingOrder, setIsConfirmingOrder] = useState(false);
 
     //for image OCR 
     const [extractedData, setExtractedData] = useState(null);
-const [showConfirm, setShowConfirm] = useState(false);
-const [selectedFile, setSelectedFile] = useState(null);
+    const [showConfirm, setShowConfirm] = useState(false);
+    const [selectedFile, setSelectedFile] = useState(null);
 
 
 const handleImageUpload = async (e) => {
@@ -134,6 +135,12 @@ const handleImageUpload = async (e) => {
                     headers: token ? { Authorization: `Bearer ${token}` } : {},
                 }
             );
+            
+            // Check if order modal should be shown
+            if (res.data.showOrderModal && res.data.order) {
+                setOrderModal(res.data.order);
+            }
+            
             setMessages((prev) => [
                 ...prev,
                 {
@@ -172,6 +179,64 @@ const handleImageUpload = async (e) => {
             e.preventDefault();
             handleSend();
         }
+    };
+
+    const handleConfirmOrder = async () => {
+        if (!orderModal) return;
+        
+        setIsConfirmingOrder(true);
+        try {
+            const token = localStorage.getItem("token");
+            // Get user_id from localStorage (set during login)
+            const userId = localStorage.getItem("user_id");
+            
+            const res = await axios.post(
+                "http://localhost:5000/api/agent/confirm-order",
+                {
+                    medicine_id: orderModal.medicine_id,
+                    quantity: orderModal.quantity,
+                    user_id: userId ? parseInt(userId) : null
+                },
+                {
+                    headers: token ? { Authorization: `Bearer ${token}` } : {},
+                }
+            );
+
+            if (res.data.success) {
+                // Add success message to chat
+                const now = Date.now();
+                setMessages((prev) => [
+                    ...prev,
+                    {
+                        id: now.toString(),
+                        role: "assistant",
+                        content: res.data.message,
+                        timestamp: new Date(),
+                    },
+                ]);
+            }
+        } catch (err) {
+            console.error("Order confirmation failed", err);
+            const now = Date.now();
+            const errorMsg = err.response?.data?.error || "Error confirming order. Please try again.";
+            setMessages((prev) => [
+                ...prev,
+                {
+                    id: now.toString(),
+                    role: "assistant",
+                    content: `❌ ${errorMsg}`,
+                    timestamp: new Date(),
+                },
+            ]);
+        } finally {
+            setOrderModal(null);
+            setIsConfirmingOrder(false);
+        }
+    };
+
+    const handleCancelOrder = () => {
+        // Just close the modal and continue chatting
+        setOrderModal(null);
     };
 
     return (
@@ -322,6 +387,55 @@ const handleImageUpload = async (e) => {
     </div>
   </div>
 )}
+
+            {/* Order Confirmation Modal */}
+            {orderModal && (
+                <div className="fixed inset-0 bg-black bg-opacity-60 flex items-center justify-center z-50">
+                    <div className="bg-white rounded-xl p-8 max-w-sm w-full shadow-2xl">
+                        <h2 className="text-2xl font-bold mb-6 text-gray-800">Order Summary</h2>
+                        
+                        <div className="space-y-4 mb-6 bg-blue-50 p-4 rounded-lg">
+                            <div className="flex justify-between">
+                                <span className="text-gray-600">Medicine:</span>
+                                <span className="font-semibold text-gray-800">{orderModal.medicine_name}</span>
+                            </div>
+                            <div className="flex justify-between">
+                                <span className="text-gray-600">Quantity:</span>
+                                <span className="font-semibold text-gray-800">{orderModal.quantity} unit(s)</span>
+                            </div>
+                            <div className="flex justify-between">
+                                <span className="text-gray-600">Price per Unit:</span>
+                                <span className="font-semibold text-gray-800">₹{orderModal.price_per_unit}</span>
+                            </div>
+                            <div className="border-t border-blue-200 pt-3 flex justify-between">
+                                <span className="text-gray-700 font-semibold">Total Amount:</span>
+                                <span className="text-xl font-bold text-blue-600">₹{orderModal.total_price}</span>
+                            </div>
+                            <div className="text-sm text-gray-600">
+                                Stock Available: <span className="font-semibold">{orderModal.stock_available} units</span>
+                            </div>
+                        </div>
+
+                        <div className="flex gap-3 justify-end">
+                            <button
+                                onClick={handleCancelOrder}
+                                disabled={isConfirmingOrder}
+                                className="px-6 py-2 bg-gray-300 text-gray-800 rounded-lg font-medium hover:bg-gray-400 disabled:opacity-50"
+                            >
+                                Cancel
+                            </button>
+                            <button
+                                onClick={handleConfirmOrder}
+                                disabled={isConfirmingOrder}
+                                className="px-6 py-2 bg-blue-600 text-white rounded-lg font-medium hover:bg-blue-700 disabled:opacity-50 flex items-center gap-2"
+                            >
+                                {isConfirmingOrder && <Loader2 className="h-4 w-4 animate-spin" />}
+                                {isConfirmingOrder ? "Processing..." : "Confirm Order"}
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            )}
         </div>
     );
 }

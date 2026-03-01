@@ -1,6 +1,68 @@
 import { Link } from "react-router-dom";
+import { useState, useEffect } from "react";
+import axios from "axios";
+import { Loader2 } from "lucide-react";
 
 export default function AdminDashboard() {
+  const [stats, setStats] = useState({
+    totalMedicines: 0,
+    lowStockAlerts: 0,
+    ordersToday: 0,
+    totalOrders: 0
+  });
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(null);
+
+  useEffect(() => {
+    fetchDashboardData();
+  }, []);
+
+  const fetchDashboardData = async () => {
+    try {
+      setLoading(true);
+      const token = localStorage.getItem("token");
+      const res = await axios.get(
+        "http://localhost:5000/api/admin/dashboard",
+        {
+          headers: token ? { Authorization: `Bearer ${token}` } : {},
+        }
+      );
+
+      if (res.data) {
+        setStats({
+          totalMedicines: res.data.totalMedicines || 0,
+          lowStockAlerts: res.data.lowStockAlerts || 0,
+          ordersToday: res.data.ordersToday || 0,
+          totalOrders: res.data.totalOrders || 0
+        });
+      }
+    } catch (err) {
+      console.error("Failed to fetch dashboard data:", err);
+      setError("Failed to load dashboard data");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  if (loading) {
+    return (
+      <div className="flex items-center justify-center h-screen">
+        <Loader2 className="h-8 w-8 animate-spin text-blue-600" />
+      </div>
+    );
+  }
+
+  if (error) {
+    return (
+      <div className="p-8">
+        <h1 className="text-3xl font-bold mb-8">Admin Dashboard</h1>
+        <div className="bg-red-900 border border-red-700 p-4 rounded-lg text-red-200">
+          {error}
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div>
       {/* Title */}
@@ -10,10 +72,10 @@ export default function AdminDashboard() {
 
       {/* Stats Section */}
       <div className="grid md:grid-cols-4 gap-6 mb-12">
-        <StatCard title="Total Medicines" value="1,240" change="+2.4%" />
-        <StatCard title="Low Stock Alerts" value="12" change="-1.2%" />
-        <StatCard title="Active Agents" value="8" change="+1" />
-        <StatCard title="Orders Today" value="326" change="+5.6%" />
+        <StatCard title="Total Medicines" value={stats.totalMedicines.toLocaleString()} change="+2.4%" />
+        <StatCard title="Low Stock Alerts" value={stats.lowStockAlerts} change="-1.2%" />
+        <StatCard title="Orders Today" value={stats.ordersToday} change="+5.6%" />
+        <StatCard title="Total Orders" value={stats.totalOrders.toLocaleString()} change="+1.2%" />
       </div>
 
       {/* Management Section */}

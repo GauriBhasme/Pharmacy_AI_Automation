@@ -5,22 +5,31 @@ import { db } from "../db.js";
 =========================== */
 export const getAdminDashboard = async (req, res) => {
   try {
-    const usersResult = await db.query(
-      "SELECT COUNT(*) AS totalusers FROM users"
+    // Total medicines count
+    const medicinesResult = await db.query(
+      "SELECT COUNT(*) AS totalmedicines FROM medicines"
     );
 
+    // Low stock alerts (stock < 20)
+    const lowStockResult = await db.query(
+      "SELECT COUNT(*) AS lowstockalerts FROM medicines WHERE stock < 20"
+    );
+
+    // Total orders
     const ordersResult = await db.query(
       "SELECT COUNT(*) AS totalorders FROM orders"
     );
 
-    const lowStockResult = await db.query(
-      "SELECT * FROM medicines WHERE stock < 5"
+    // Orders today
+    const ordersToday = await db.query(
+      "SELECT COUNT(*) AS orderstoday FROM orders WHERE DATE(created_at) = CURRENT_DATE"
     );
 
     res.status(200).json({
-      totalUsers: usersResult.rows[0].totalusers,
-      totalOrders: ordersResult.rows[0].totalorders,
-      lowStock: lowStockResult.rows,
+      totalMedicines: parseInt(medicinesResult.rows[0].totalmedicines),
+      lowStockAlerts: parseInt(lowStockResult.rows[0].lowstockalerts),
+      ordersToday: parseInt(ordersToday.rows[0].orderstoday),
+      totalOrders: parseInt(ordersResult.rows[0].totalorders)
     });
   } catch (error) {
     console.error(error);
@@ -235,13 +244,39 @@ export const deleteMedicine = async (req, res) => {
 =========================== */
 export const getAgentLogs = async (req, res) => {
   try {
+    await db.query(`
+      CREATE TABLE IF NOT EXISTS agent_activity_logs (
+        id SERIAL PRIMARY KEY,
+        trace_id VARCHAR(120) NOT NULL,
+        user_id INTEGER,
+        activity_type VARCHAR(50) NOT NULL,
+        intent VARCHAR(50),
+        medicine_name VARCHAR(255),
+        input_message TEXT,
+        response_preview TEXT,
+        status VARCHAR(20) NOT NULL,
+        http_status INTEGER,
+        duration_ms INTEGER,
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+      )
+    `);
+
+    const limit = Math.min(parseInt(req.query.limit, 10) || 100, 500);
     const result = await db.query(
-      "SELECT * FROM logs WHERE user_id = $1",
-      [req.user.id]
+      `SELECT id, trace_id, user_id, activity_type, intent, medicine_name,
+              input_message, response_preview, status, http_status, duration_ms, created_at
+       FROM agent_activity_logs
+       ORDER BY created_at DESC
+       LIMIT $1`,
+      [limit]
     );
 
-    res.status(200).json(result.rows);
+    res.status(200).json({
+      logs: result.rows,
+      count: result.rows.length,
+    });
   } catch (error) {
+    console.error("[admin.agent-logs] Error:", error.message);
     res.status(500).json({ message: "Failed to fetch agent logs" });
   }
 };
