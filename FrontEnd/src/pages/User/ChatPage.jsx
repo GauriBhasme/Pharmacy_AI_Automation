@@ -51,13 +51,94 @@ const handleImageUpload = async (e) => {
 
         setExtractedData(res.data.result);
         setShowConfirm(true);
+        const now = Date.now();
+        setMessages((prev) => [
+            ...prev,
+            {
+                id: now.toString(),
+                role: "assistant",
+                content: "Prescription scanned successfully. Please review extracted medicines and confirm.",
+                timestamp: new Date(),
+            },
+        ]);
 
     } catch (err) {
-        alert("OCR Failed");
+        const msg =
+            err?.response?.data?.details ||
+            err?.response?.data?.error ||
+            err?.message ||
+            "OCR Failed";
+        alert(`OCR Failed: ${msg}`);
+        console.error("OCR upload failed", err);
     }
 
     setIsLoading(false);
 };
+
+    const confirmPrescription = async () => {
+        if (!Array.isArray(extractedData) || extractedData.length === 0) {
+            alert("No extracted medicines to confirm.");
+            return;
+        }
+
+        try {
+            setIsLoading(true);
+            const token = localStorage.getItem("token");
+            const res = await axios.post(
+                "http://localhost:5000/api/prescription/confirm",
+                { medicines: extractedData },
+                {
+                    headers: token ? { Authorization: `Bearer ${token}` } : {},
+                }
+            );
+
+            const available = res.data?.available || [];
+            const unavailable = res.data?.unavailable || [];
+            const recommendedOrder = res.data?.recommendedOrder || null;
+
+            const summaryLines = [];
+            if (available.length > 0) {
+                summaryLines.push(`Available: ${available.map((m) => `${m.medicine_name} (x${m.quantity})`).join(", ")}`);
+            }
+            if (unavailable.length > 0) {
+                summaryLines.push(`Unavailable: ${unavailable.map((m) => `${m.name} (${m.reason})`).join(", ")}`);
+            }
+            if (summaryLines.length === 0) {
+                summaryLines.push("No medicines could be mapped from the prescription.");
+            }
+
+            const now = Date.now();
+            setMessages((prev) => [
+                ...prev,
+                {
+                    id: now.toString(),
+                    role: "assistant",
+                    content: `Prescription verification completed.\n${summaryLines.join("\n")}`,
+                    timestamp: new Date(),
+                },
+            ]);
+
+            if (recommendedOrder) {
+                setOrderModal(recommendedOrder);
+            }
+            setShowConfirm(false);
+        } catch (err) {
+            console.error("Prescription confirm failed", err);
+            const now = Date.now();
+            const msg = err.response?.data?.error || "Failed to verify prescription medicines.";
+            setMessages((prev) => [
+                ...prev,
+                {
+                    id: now.toString(),
+                    role: "assistant",
+                    content: `OCR confirmation failed: ${msg}`,
+                    timestamp: new Date(),
+                },
+            ]);
+        } finally {
+            setIsLoading(false);
+        }
+    };
 
 
 
@@ -366,7 +447,7 @@ const handleImageUpload = async (e) => {
       <h2 className="text-lg font-semibold mb-4">Confirm Extracted Medicines</h2>
 
       <pre className="bg-gray-100 p-3 rounded text-sm max-h-60 overflow-auto">
-        {extractedData}
+        {JSON.stringify(extractedData, null, 2)}
       </pre>
 
       <div className="flex justify-end gap-3 mt-4">

@@ -7,6 +7,7 @@ export default function AdminDashboard() {
   const [stats, setStats] = useState({
     totalMedicines: 0,
     lowStockAlerts: 0,
+    outOfStockAlerts: 0,
     ordersToday: 0,
     totalOrders: 0
   });
@@ -32,6 +33,7 @@ export default function AdminDashboard() {
         setStats({
           totalMedicines: res.data.totalMedicines || 0,
           lowStockAlerts: res.data.lowStockAlerts || 0,
+          outOfStockAlerts: res.data.outOfStockAlerts || 0,
           ordersToday: res.data.ordersToday || 0,
           totalOrders: res.data.totalOrders || 0
         });
@@ -71,9 +73,10 @@ export default function AdminDashboard() {
       </h1>
 
       {/* Stats Section */}
-      <div className="grid md:grid-cols-4 gap-6 mb-12">
+      <div className="grid md:grid-cols-5 gap-6 mb-12">
         <StatCard title="Total Medicines" value={stats.totalMedicines.toLocaleString()} change="+2.4%" />
         <StatCard title="Low Stock Alerts" value={stats.lowStockAlerts} change="-1.2%" />
+        <StatCard title="Out of Stock" value={stats.outOfStockAlerts} change="critical" />
         <StatCard title="Orders Today" value={stats.ordersToday} change="+5.6%" />
         <StatCard title="Total Orders" value={stats.totalOrders.toLocaleString()} change="+1.2%" />
       </div>
@@ -99,11 +102,18 @@ export default function AdminDashboard() {
 /* ---------------- Components ---------------- */
 
 function StatCard({ title, value, change }) {
+  const changeColor =
+    change === "critical"
+      ? "text-red-400"
+      : change?.startsWith("-")
+      ? "text-yellow-400"
+      : "text-green-400";
+
   return (
     <div className="bg-slate-900 p-6 rounded-xl border border-slate-800 hover:border-blue-500 transition">
       <p className="text-slate-400">{title}</p>
       <h2 className="text-2xl font-bold mt-2">{value}</h2>
-      <span className="text-green-400 text-sm">{change}</span>
+      <span className={`${changeColor} text-sm`}>{change}</span>
     </div>
   );
 }

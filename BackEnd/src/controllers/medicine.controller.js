@@ -1,28 +1,51 @@
-import {db} from "../db.js";
+import { db } from "../db.js";
 
 export const getAllMedicines = async (req, res) => {
-  const [medicines] = await db.query("SELECT * FROM medicines");
-  res.json(medicines);
+  try {
+    const result = await db.query(
+      "SELECT id, name, description, composition, dosage, side_effects, contraindications, price, stock, category, created_at, updated_at FROM medicines ORDER BY name ASC"
+    );
+    res.json(result.rows);
+  } catch (err) {
+    console.error("[medicines.getAll] Error:", err.message);
+    res.status(500).json({ message: "Failed to fetch medicines" });
+  }
 };
 
 export const getMedicineById = async (req, res) => {
-  const { id } = req.params;
+  try {
+    const { id } = req.params;
+    const result = await db.query(
+      "SELECT id, name, description, composition, dosage, side_effects, contraindications, price, stock, category, created_at, updated_at FROM medicines WHERE id = $1",
+      [id]
+    );
 
-  const [medicine] = await db.query(
-    "SELECT * FROM medicines WHERE medicine_id = ?",
-    [id]
-  );
+    if (result.rows.length === 0) {
+      return res.status(404).json({ message: "Medicine not found" });
+    }
 
-  res.json(medicine[0]);
+    res.json(result.rows[0]);
+  } catch (err) {
+    console.error("[medicines.getById] Error:", err.message);
+    res.status(500).json({ message: "Failed to fetch medicine" });
+  }
 };
 
 export const searchMedicines = async (req, res) => {
-  const { q } = req.query;
+  try {
+    const { q = "" } = req.query;
+    const result = await db.query(
+      `SELECT id, name, description, composition, dosage, side_effects, contraindications, price, stock, category, created_at, updated_at
+       FROM medicines
+       WHERE LOWER(name) LIKE LOWER($1)
+       ORDER BY name ASC
+       LIMIT 50`,
+      [`%${q}%`]
+    );
 
-  const [results] = await db.query(
-    "SELECT * FROM medicines WHERE medicine_name LIKE ?",
-    [`%${q}%`]
-  );
-
-  res.json(results);
+    res.json(result.rows);
+  } catch (err) {
+    console.error("[medicines.search] Error:", err.message);
+    res.status(500).json({ message: "Failed to search medicines" });
+  }
 };

@@ -10,9 +10,14 @@ export const getAdminDashboard = async (req, res) => {
       "SELECT COUNT(*) AS totalmedicines FROM medicines"
     );
 
-    // Low stock alerts (stock < 20)
+    // Low stock alerts (stock <= 10 and > 0)
     const lowStockResult = await db.query(
-      "SELECT COUNT(*) AS lowstockalerts FROM medicines WHERE stock < 20"
+      "SELECT COUNT(*) AS lowstockalerts FROM medicines WHERE stock <= 10 AND stock > 0"
+    );
+
+    // Out of stock alerts (stock = 0)
+    const outOfStockResult = await db.query(
+      "SELECT COUNT(*) AS outofstockalerts FROM medicines WHERE stock = 0"
     );
 
     // Total orders
@@ -28,6 +33,7 @@ export const getAdminDashboard = async (req, res) => {
     res.status(200).json({
       totalMedicines: parseInt(medicinesResult.rows[0].totalmedicines),
       lowStockAlerts: parseInt(lowStockResult.rows[0].lowstockalerts),
+      outOfStockAlerts: parseInt(outOfStockResult.rows[0].outofstockalerts),
       ordersToday: parseInt(ordersToday.rows[0].orderstoday),
       totalOrders: parseInt(ordersResult.rows[0].totalorders)
     });
@@ -44,7 +50,7 @@ export const getAdminDashboard = async (req, res) => {
 export const getAllUsers = async (req, res) => {
   try {
     const result = await db.query(
-      "SELECT user_id, username, email, user_role FROM users"
+      "SELECT user_id, user_name AS username, email, user_role FROM users"
     );
     res.status(200).json(result.rows);
   } catch (error) {
@@ -131,7 +137,43 @@ export const updateOrderStatus = async (req, res) => {
 
 export const getAllMedicinesAdmin = async (req, res) => {
   try {
-    const result = await db.query("SELECT * FROM medicines");
+    const { q = "", stockStatus = "all" } = req.query;
+    const where = [];
+    const params = [];
+    let i = 1;
+
+    if (q && String(q).trim()) {
+      where.push(`(
+        LOWER(name) LIKE LOWER($${i})
+        OR LOWER(COALESCE(category, '')) LIKE LOWER($${i})
+        OR LOWER(COALESCE(composition, '')) LIKE LOWER($${i})
+      )`);
+      params.push(`%${String(q).trim()}%`);
+      i++;
+    }
+
+    if (stockStatus === "out") {
+      where.push("stock = 0");
+    } else if (stockStatus === "low") {
+      where.push("stock <= 10 AND stock > 0");
+    } else if (stockStatus === "in") {
+      where.push("stock > 10");
+    }
+
+    const whereClause = where.length > 0 ? `WHERE ${where.join(" AND ")}` : "";
+    const result = await db.query(
+      `SELECT *,
+              CASE
+                WHEN stock = 0 THEN 'OUT_OF_STOCK'
+                WHEN stock <= 10 THEN 'LOW_STOCK'
+                ELSE 'IN_STOCK'
+              END AS stock_status
+       FROM medicines
+       ${whereClause}
+       ORDER BY stock ASC, name ASC`,
+      params
+    );
+
     res.status(200).json(result.rows);
   } catch (error) {
     console.error(error);
@@ -142,26 +184,32 @@ export const getAllMedicinesAdmin = async (req, res) => {
 export const createMedicine = async (req, res) => {
   try {
     const {
-      med_name,
-      pzn,
+      name,
       price,
-      package_size,
       description,
-      requires_prescription,
+      composition,
+      dosage,
+      side_effects,
+      contraindications,
+      stock,
+      category,
     } = req.body;
 
     const result = await db.query(
       `INSERT INTO medicines 
-       (med_name, pzn, price, package_size, description, requires_prescription)
-       VALUES ($1, $2, $3, $4, $5, $6)
+       (name, price, description, composition, dosage, side_effects, contraindications, stock, category)
+       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
        RETURNING *`,
       [
-        med_name,
-        pzn,
+        name,
         price,
-        package_size,
         description,
-        requires_prescription,
+        composition,
+        dosage,
+        side_effects,
+        contraindications,
+        stock ?? 0,
+        category,
       ]
     );
 
@@ -177,34 +225,45 @@ export const updateMedicine = async (req, res) => {
   try {
     const { id } = req.params;
     const {
-      med_name,
-      pzn,
+      name,
       price,
       stock,
-      package_size,
       description,
-      requires_prescription,
+      composition,
+      dosage,
+      side_effects,
+      contraindications,
+      category,
     } = req.body;
+
+    if (!name || price === undefined || stock === undefined) {
+      return res.status(400).json({ message: "name, price and stock are required" });
+    }
 
     const result = await db.query(
       `UPDATE medicines 
-       SET med_name = $1,
-           pzn = $2,
-           price = $3,
-           stock = $4,
-           package_size = $5,
-           description = $6,
-           requires_prescription = $7
-       WHERE med_id = $8
+       SET name = $1,
+           price = $2,
+           stock = $3,
+           description = $4,
+           composition = $5,
+           dosage = $6,
+           side_effects = $7,
+           contraindications = $8,
+           category = $9,
+           updated_at = CURRENT_TIMESTAMP
+       WHERE id = $10
        RETURNING *`,
       [
-        med_name,
-        pzn,
+        name,
         price,
         stock,
-        package_size,
         description,
-        requires_prescription,
+        composition,
+        dosage,
+        side_effects,
+        contraindications,
+        category,
         id,
       ]
     );
@@ -224,7 +283,7 @@ export const deleteMedicine = async (req, res) => {
     const { id } = req.params;
 
     const result = await db.query(
-      "DELETE FROM medicines WHERE med_id = $1 RETURNING *",
+      "DELETE FROM medicines WHERE id = $1 RETURNING *",
       [id]
     );
 

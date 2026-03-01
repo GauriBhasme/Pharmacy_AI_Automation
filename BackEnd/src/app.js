@@ -1,3 +1,4 @@
+import "dotenv/config";
 // import all app routes
 import express from "express";
 import cors from 'cors';

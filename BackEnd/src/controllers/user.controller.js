@@ -240,11 +240,11 @@ export const getOrderHistory = async (req, res) => {
   const userId = req.user.user_id;
 
   const result = await db.query(
-    `SELECT o.order_id, oi.quantity, oi.order_status, m.medicine_name
+    `SELECT o.id AS order_id, o.quantity, o.status AS order_status, m.name AS medicine_name
      FROM orders o
-     JOIN order_items oi ON o.order_id = oi.order_id
-     JOIN medicines m ON m.medicine_id = oi.medicine_id
-     WHERE o.user_id = $1`,
+     LEFT JOIN medicines m ON m.id = o.medicine_id
+     WHERE o.user_id = $1
+     ORDER BY o.created_at DESC`,
     [userId]
   );
 
@@ -255,11 +255,11 @@ export const getRefillPredictions = async (req, res) => {
   const userId = req.user.user_id;
 
   const result = await db.query(
-    `SELECT m.medicine_name, oi.quantity, oi.ordered_at
+    `SELECT m.name AS medicine_name, o.quantity, o.created_at AS ordered_at
      FROM orders o
-     JOIN order_items oi ON o.order_id = oi.order_id
-     JOIN medicines m ON m.medicine_id = oi.medicine_id
-     WHERE o.user_id = $1`,
+     LEFT JOIN medicines m ON m.id = o.medicine_id
+     WHERE o.user_id = $1
+     ORDER BY o.created_at DESC`,
     [userId]
   );
 

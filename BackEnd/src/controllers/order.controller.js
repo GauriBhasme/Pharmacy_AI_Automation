@@ -117,7 +117,7 @@ export const createOrder = async (req, res) => {
 
     // Get user details
     const userResult = await db.query(
-      "SELECT username, email FROM users WHERE user_id = $1",
+      "SELECT user_name AS username, email FROM users WHERE user_id = $1",
       [userId]
     );
 
@@ -135,51 +135,65 @@ export const createOrder = async (req, res) => {
       await connection.query("BEGIN");
 
       // Insert order
-      const orderResult = await connection.query(
-        "INSERT INTO orders (user_id) VALUES ($1) RETURNING order_id",
-        [userId]
-      );
-
-      const orderId = orderResult.rows[0].order_id;
       let totalAmount = 0;
       const orderItems = [];
+      const createdOrderIds = [];
 
       for (let item of items) {
+        const medicineId = Number(item.medicine_id);
+        const quantity = Number(item.quantity);
+        if (!medicineId || !quantity || quantity <= 0) {
+          throw new Error("Invalid medicine_id or quantity in items");
+        }
+
         const medicineResult = await connection.query(
-          "SELECT * FROM medicines WHERE medicine_id = $1",
-          [item.medicine_id]
+          "SELECT id, name, price, stock, dosage FROM medicines WHERE id = $1",
+          [medicineId]
         );
 
         if (medicineResult.rowCount === 0) {
-          throw new Error(`Medicine with ID ${item.medicine_id} not found`);
+          throw new Error(`Medicine with ID ${medicineId} not found`);
         }
 
         const medicine = medicineResult.rows[0];
 
-        if (medicine.stock_quantity < item.quantity) {
-          throw new Error(`Insufficient stock for ${medicine.medicine_name}`);
+        if (medicine.stock < quantity) {
+          throw new Error(`Insufficient stock for ${medicine.name}`);
         }
 
-        const total = medicine.price * item.quantity;
+        const total = Number(medicine.price) * quantity;
         totalAmount += total;
 
-        await connection.query(
-          `INSERT INTO order_items (order_id, medicine_id, quantity, total_amount)
-           VALUES ($1, $2, $3, $4)`,
-          [orderId, item.medicine_id, item.quantity, total]
+        const createdOrder = await connection.query(
+          `INSERT INTO orders (
+             user_id, medicine_id, quantity, medicine_name, total_price, dosage, frequency, prescription_required, status
+           ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
+           RETURNING id`,
+          [
+            userId,
+            medicineId,
+            quantity,
+            medicine.name,
+            total,
+            medicine.dosage || "As directed",
+            "As directed",
+            false,
+            "completed",
+          ]
         );
+        createdOrderIds.push(createdOrder.rows[0].id);
 
         // Update medicine stock
-        const newStock = medicine.stock_quantity - item.quantity;
+        const newStock = medicine.stock - quantity;
         await connection.query(
-          "UPDATE medicines SET stock_quantity = $1 WHERE medicine_id = $2",
-          [newStock, item.medicine_id]
+          "UPDATE medicines SET stock = $1, updated_at = CURRENT_TIMESTAMP WHERE id = $2",
+          [newStock, medicineId]
         );
 
         orderItems.push({
-          medicine_name: medicine.medicine_name,
-          quantity: item.quantity,
-          price: medicine.price,
+          medicine_name: medicine.name,
+          quantity,
+          price: Number(medicine.price),
           total_amount: total,
         });
 
@@ -187,8 +201,8 @@ export const createOrder = async (req, res) => {
         const LOW_STOCK_THRESHOLD = 20;
         if (newStock < LOW_STOCK_THRESHOLD) {
           await sendRefillAlert({
-            medicine_name: medicine.medicine_name,
-            medicine_id: medicine.medicine_id,
+            medicine_name: medicine.name,
+            medicine_id: medicine.id,
             stock_quantity: newStock,
             min_stock_level: LOW_STOCK_THRESHOLD,
             price: medicine.price,
@@ -200,14 +214,14 @@ export const createOrder = async (req, res) => {
 
       // Send order confirmation email to user
       await sendOrderConfirmation(userEmail, userName, {
-        orderId,
+        orderId: createdOrderIds[0] || null,
         items: orderItems,
         totalAmount,
       });
 
       res.status(201).json({
         message: "Order placed successfully & confirmation email sent",
-        orderId,
+        orderIds: createdOrderIds,
         totalAmount,
       });
     } catch (err) {
@@ -227,7 +241,7 @@ export const getOrderById = async (req, res) => {
     const { orderId } = req.params;
 
     const result = await db.query(
-      "SELECT * FROM order_items WHERE order_id = $1",
+      "SELECT * FROM orders WHERE id = $1",
       [orderId]
     );
 
@@ -247,7 +261,7 @@ export const cancelOrder = async (req, res) => {
     const { orderId } = req.params;
 
     const result = await db.query(
-      "UPDATE orders SET status = 'cancelled' WHERE order_id = $1 RETURNING *",
+      "UPDATE orders SET status = 'cancelled' WHERE id = $1 RETURNING *",
       [orderId]
     );
 
