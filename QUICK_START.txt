@@ -1,0 +1,218 @@
+╔════════════════════════════════════════════════════════════╗
+║                                                            ║
+║         MEDICAL PHARMACY CHATBOT - QUICK START GUIDE       ║
+║                                                            ║
+╚════════════════════════════════════════════════════════════╝
+
+
+📋 STEP 1: START THE BACKEND SERVER
+────────────────────────────────────────────────────────────
+
+Option A - Simple Start (Windows):
+  1. Open Command Prompt or PowerShell
+  2. Navigate to BackEnd folder:
+     cd BackEnd
+  3. Run:
+     node src/server.js
+
+Option B - Using Batch Script (Windows):
+  1. Go to BackEnd folder
+  2. Double-click: START_SERVER.bat
+
+Option C - Using Node Script:
+  cd BackEnd
+  node start.js
+
+Expected Output:
+  ✅ PostgreSQL Connected
+  Server is running on port 5000
+  Access it at http://localhost:5000
+
+
+📋 STEP 2: VERIFY SERVER IS RUNNING
+────────────────────────────────────────────────────────────
+
+Test 1 - Health Check URL:
+  Open browser: http://localhost:5000/health
+  Expected: {"status":"ok","pid":12345}
+
+Test 2 - Test Chat Endpoint (in PowerShell/Terminal):
+  curl -X POST http://localhost:5000/api/agent/chat `
+    -H "Content-Type: application/json" `
+    -d '{"message":"price of paracetamol"}'
+
+  Or: Invoke-WebRequest -Uri "http://localhost:5000/api/agent/chat" `
+    -Method POST -Headers @{"Content-Type"="application/json"} `
+    -Body '{"message":"price of paracetamol"}' -UseBasicParsing
+
+
+📋 STEP 3: START FRONTEND
+────────────────────────────────────────────────────────────
+
+In another terminal/Command Prompt:
+  cd FrontEnd
+  npm install  (if needed)
+  npm run dev
+
+Expected:
+  ✅ Local: http://localhost:5173/
+  ✅ Frontend will connect to backend at localhost:5000
+
+
+📋 STEP 4: USE THE CHATBOT
+────────────────────────────────────────────────────────────
+
+In Frontend (http://localhost:5173):
+  1. Go to Chat Page
+  2. Example queries to try:
+     ✅ "What is the price of paracetamol?"
+     ✅ "What is the dosage for ibuprofen?"
+     ✅ "I have a fever, what medicine?"
+     ✅ "Order 2 paracetamol tablets"
+     ❌ "What is the capital of France?" (rejected)
+
+  3. Backend will respond with medical information
+
+
+🔗 API ENDPOINTS
+────────────────────────────────────────────────────────────
+
+Main Chat Endpoint:
+  POST http://localhost:5000/api/agent/chat
+  Payload: {"message":"your query"}
+  Response: {"success":true,"reply":"response text"}
+
+Alternative Endpoint:
+  POST http://localhost:5000/api/chat/chat
+  (Same parameters and response)
+
+Health Check:
+  GET http://localhost:5000/health
+  Response: {"status":"ok","pid":number}
+
+
+🗄️ DATABASE SETUP (First Time)
+────────────────────────────────────────────────────────────
+
+If medicines table doesn't exist, seed it:
+
+In BackEnd folder, run:
+  node seed-medicines.js
+
+This adds 10 sample medicines:
+  - Paracetamol (₹50)
+  - Aspirin (₹40)
+  - Ibuprofen (₹60)
+  - Cough Syrup (₹120)
+  - Cetirizine (₹75)
+  - Amoxicillin (₹150)
+  - Antacid Gel (₹90)
+  - Vitamin D3 (₹200)
+  - Metformin (₹180)
+  - Losartan (₹250)
+
+
+⚙️ ENVIRONMENT CONFIGURATION (.env)
+────────────────────────────────────────────────────────────
+
+Already configured in BackEnd/.env:
+  ✅ DB_HOST=localhost
+  ✅ DB_USER=postgres
+  ✅ DB_PASSWORD=super
+  ✅ DB_NAME=pharmacy_ai
+  ✅ DB_PORT=5432
+  ✅ PORT=5000
+  ✅ GROQ_API_KEY (configured)
+
+No action needed unless you're using different database credentials.
+
+
+💬 CHAT BUTTON INTEGRATION
+────────────────────────────────────────────────────────────
+
+Frontend ChatPage.jsx:
+  ✅ Send Button → handleSend() function
+  ✅ handleSend() → POST to http://localhost:5000/api/agent/chat
+  ✅ Response displayed in chat interface
+  ✅ Medical queries only (enforced by backend)
+
+The chat button is already connected! Just:
+  1. Start backend (node src/server.js)
+  2. Start frontend (npm run dev)
+  3. Type in chat and click Send
+
+
+🐛 TROUBLESHOOTING
+────────────────────────────────────────────────────────────
+
+Problem: "localhost is not running"
+Solution:
+  1. Open Command Prompt/PowerShell
+  2. Navigate: cd BackEnd
+  3. Run: node src/server.js
+  4. Wait for: "Server is running on port 5000"
+  5. Check: http://localhost:5000/health in browser
+
+Problem: "Cannot connect to database"
+Solution:
+  1. Make sure PostgreSQL is running
+  2. Check DB credentials in .env
+  3. Verify database 'pharmacy_ai' exists
+  4. Run: npx psql -U postgres -c "CREATE DATABASE pharmacy_ai"
+
+Problem: "Chat button doesn't work"
+Solution:
+  1. Open browser DevTools (F12)
+  2. Check Console tab for errors
+  3. Check Network tab - POST to /api/agent/chat
+  4. Verify backend URL is: http://localhost:5000
+  5. Backend should return: {"success":true,"reply":"..."}
+
+Problem: "Error communicating with AI agent"
+Solution:
+  1. Backend is running but not responding
+  2. Check terminal where backend is running for errors
+  3. Verify .env file has correct DB credentials
+  4. Check if medicines table exists
+  5. Run seed script: node seed-medicines.js
+
+
+📊 TESTING
+────────────────────────────────────────────────────────────
+
+Run comprehensive tests (after backend starts):
+
+In BackEnd folder:
+  node test-medical-report.js
+
+Expected: 12/13 tests passing (92.3% success rate)
+
+This validates:
+  ✅ Medical field restriction
+  ✅ Price lookups
+  ✅ Dosage information
+  ✅ Symptom recommendations
+  ✅ Order processing
+  ✅ Error handling
+
+
+📝 QUICK REFERENCE
+────────────────────────────────────────────────────────────
+
+Start Backend:        cd BackEnd && node src/server.js
+Start Frontend:       cd FrontEnd && npm run dev
+View Chat:            http://localhost:5173
+Backend Health:       http://localhost:5000/health
+Seed Database:        node seed-medicines.js
+Run Tests:            node test-medical-report.js
+
+Browser DevTools:     F12
+Check Logs:           Terminal/Command Prompt
+API Documentation:    See CHATBOT_REPORT.txt
+
+
+═══════════════════════════════════════════════════════════
+
+              🎉 READY TO CHAT! 🎉
+
+═══════════════════════════════════════════════════════════

@@ -128,7 +128,7 @@ const handleImageUpload = async (e) => {
             // Send message to backend Gemini agent
             const token = localStorage.getItem("token");
             const res = await axios.post(
-                "http://localhost:5000/api/chat/chat",
+                 "http://localhost:5000/api/agent/chat",
                 { message: userMessage },
                 {
                     headers: token ? { Authorization: `Bearer ${token}` } : {},
@@ -144,12 +144,22 @@ const handleImageUpload = async (e) => {
                 },
             ]);
         } catch (err) {
+            // try to surface a meaningful message from the backend
+            // log error for developer
+            console.error("chat request failed", err);
+            let msg = "Sorry, there was an error communicating with the AI agent.";
+            if (err.response && err.response.data) {
+                msg = err.response.data.error || err.response.data.message || msg;
+                if (err.response.data.details) {
+                    msg += ` (${err.response.data.details})`;
+                }
+            }
             setMessages((prev) => [
                 ...prev,
                 {
                     id: (now + 2).toString(),
                     role: "assistant",
-                    content: "Sorry, there was an error communicating with the AI agent.",
+                    content: msg,
                     timestamp: new Date(),
                 },
             ]);
